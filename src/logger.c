@@ -2,29 +2,42 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
-#include <direct.h>
 #include <inttypes.h>
+#include <unistd.h>
 
 #ifdef _WIN32
 #include <windows.h>
+#include <direct.h>
+#elif defined(__linux__)
+#include <sys/time.h>
 #endif // DEBUG
 
 #include "logger.h"
 
+//不包含路径的日志文件的文件名的最大长度50字符
 #define     LOG_NAME_MAX_LENGTH     50
+//日志的整个文件路径最大长度
 #define     LOG_DIR_MX_LENGTH       200
+//日至时间辍的最小长度 从0开始 预留计算用
 #define     LOG_TIMESTAMP_LENGTH    (sizeof("00:00:00:000") - 1)
+//日至的文件夹默认名log的长度 从0开始 预留计算用
 #define     LOG_FORDER_LENGTH       (sizeof("Log") - 1)
+//整个日至的最大长度
 #define     LOG_FILE_MAX_LENGTH     (LOG_NAME_MAX_LENGTH + LOG_DIR_MX_LENGTH)
 
 char* log_dir = NULL;           //指向日志文件夹
 char* log_file = NULL;          //直指日志文件 绝对路径
 char* log_file_prefix = NULL;   //日志名前缀 默认：日志名前缀-time
-char* log_time = NULL;          //日志日期时间
+const char* log_time = NULL;    //日志日期时间
 char* log_name = NULL;          //日志名称  不包含路径
-FILE* log_ptr = NULL;
+FILE* log_ptr = NULL;           //日志文件指针
 
-char* getMMsTimeStamp(){
+/**
+ * @brief 微妙级时间辍获取函数
+ *      windows/linux兼容
+ * @return  返回微妙级时间辍 格式[hour:minute:second:microsecond]
+ */
+const char* getMMsTimeStamp(){
     static char buffer[30];
 #if defined(_WIN32) 
     SYSTEMTIME sys;   
@@ -33,12 +46,24 @@ char* getMMsTimeStamp(){
     sprintf_s(buffer,sizeof(buffer),"[%d:%d:%d:%d]",sys.wHour,sys.wMinute,sys.wSecond,sys.wMilliseconds);
     printf("time mm = %s \n",buffer);
 #elif defined(__linux__)
-    TO DO..
+    struct timeval timvalue;
+    int ret = gettimeofday(&timvalue,NULL);
+    if(-1 == ret) {
+        perror("get timeval structure failure");
+        snprintf(buffer,sizeof(buffer),"[%s]","[errer timestamp]");
+        return buffer;
+    }
+    struct tm* time_infor = localtime(&timvalue.tv_sec);
+    snprintf(buffer,sizeof(buffer),"[%d:%d:%d:%d]",time_infor->tm_hour,time_infor->tm_min,time_infor->tm_sec,(int)(timvalue.tv_usec/1000));
 #endif // DEBUG
     return buffer;
 }
 
-char* getTimeData(){
+/**
+ * @brief   获得时间
+ *      时间格式：  年月日-时_分_秒 example:20001010-00_00_00
+ */
+const char* getTimeData(){
     time_t nowtime = time(NULL);
     struct tm* time_infor = localtime(&nowtime);
     static char buffer[30];
@@ -46,8 +71,7 @@ char* getTimeData(){
     return buffer;
 }
 
-bool logFilemake(char* prefix,char* dir){
-        printf("1111111111\n");
+bool logFilemake(const char* prefix,const char* dir){
     if(prefix && (strlen(prefix) > 30)){
         printf("log dir or name too long to build!");
         // error = EPERM;
@@ -60,7 +84,6 @@ bool logFilemake(char* prefix,char* dir){
         return false;
     }
     
-    printf("222222\n");
     static char fileprefix[LOG_NAME_MAX_LENGTH - LOG_TIMESTAMP_LENGTH] = {0};
     static char filename[LOG_NAME_MAX_LENGTH] = {0};
     static char dirname[LOG_DIR_MX_LENGTH] = {0};
@@ -72,19 +95,19 @@ bool logFilemake(char* prefix,char* dir){
         #ifdef _WIN32
         strcpy_s(fileprefix,sizeof(fileprefix),prefix);
         #elif defined(__linux__)
-            TO DO...
+        strcpy(fileprefix,prefix);
         #endif
     } else {
         #ifdef _WIN32
         strcpy_s(fileprefix,sizeof(fileprefix),"log");
         #elif defined(__linux__)
-            TO DO...
+        strcpy(fileprefix,"log");
         #endif
     }
 #ifdef _WIN32
     sprintf_s(filename,sizeof(filename),"%s-%s",fileprefix,log_time);
 #elif defined(__linux__)
-    TO DO...
+    snprintf(filename,sizeof(filename),"%s-%s",fileprefix,log_time);
 #endif // DEBUG
 
     if(dir != NULL)    //指定文件路径
@@ -92,7 +115,7 @@ bool logFilemake(char* prefix,char* dir){
         #ifdef _WIN32
         sprintf_s(dirname,sizeof(dirname),"%s",dir);
         #elif defined(__linux__)
-        TO DO...
+        snprintf(dirname,sizeof(dirname),"%s",dir);
         #endif // DEBUG
     } else {
         getcwd(dirname,sizeof(dirname));   
@@ -100,8 +123,12 @@ bool logFilemake(char* prefix,char* dir){
     if(strrchr(dirname,'\\') == (dirname + strlen(dirname) - 1))     //最后一个字符是 /
         memset(dirname + strlen(dirname) - 1,0,sizeof(dirname) - strlen(dirname) + 1);
 
+    #ifdef _WIN32
     sprintf_s(logfile,sizeof(logfile),"%s\\%s",dirname,filename);
-
+    #elif defined(__linux__)
+    snprintf(logfile,sizeof(logfile),"%s/%s",dirname,filename);
+    #endif
+    
     log_dir = dirname;
     log_file_prefix = fileprefix;
     log_name = filename;
@@ -125,7 +152,7 @@ void log_DeInit(){
     fclose(log_ptr);
 }
 
-bool log_Init(char* prefix,char* dir){
+bool log_Init(const char* prefix,const char* dir){
     if(!logFilemake(prefix,dir)){
         printf("log file analise failure,log start terminal\n");
         return false;
@@ -140,21 +167,24 @@ bool log_Init(char* prefix,char* dir){
     return true;
 }
 
-void log_printf(LOG_TYPE type,char* format,...){
+void log_printf(LOG_TYPE type,const char* format,...){
     static char buffer[200];
-    static char* time_stamp = NULL;
-    static char* line_head = NULL;
+    static const char* line_head = NULL;
 
     va_list _ArgList;
     va_start(_ArgList, format);
+    #ifdef _WIN32
     _vsprintf_l(buffer, format, NULL, _ArgList);
+    #elifdef __linux__
+    vsnprintf(buffer, sizeof(buffer),format, _ArgList);
+    #endif  //defined(_Win32)
 
     va_end(_ArgList);
 
     switch (type)
     {
-    case LOG_MESSAGE:
-        line_head = "MESSAGE";
+    case LOG_DEBUG:
+        line_head = "DEBUG";
         break;
     case LOG_INFOR:
         line_head = "INFOR";
@@ -176,6 +206,7 @@ void log_printf(LOG_TYPE type,char* format,...){
     // sprintf(buffer,"%s [%s]:%s",getMMsTimeStamp(),line_head,buffer);
     if(log_ptr)
     {
+        static const char* time_stamp = NULL;
         time_stamp = getMMsTimeStamp();
         fprintf(log_ptr,"%s [%s]:%s\n",time_stamp,line_head,buffer);
         fprintf(stdout,"%s [%s]:%s\n",time_stamp,line_head,buffer);

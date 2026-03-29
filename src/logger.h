@@ -1,9 +1,8 @@
 #ifndef LOGGER_H
 #define LOGGER_H
 
-#include <stdbool.h>
-#include <stdlib.h>
-#include <stdio.h>
+// #include <stdlib.h>
+// #include <stdio.h>
 
 #define LOG_INFO(fmt,...)         log_printf(LOG_INFOR,fmt,##__VA_ARGS__)
 #define LOG_MSG(fmt,...)          log_printf(LOG_MESSAGE,fmt,##__VA_ARGS__)
@@ -11,17 +10,48 @@
 #define LOG_CRITI(fmt,...)        log_printf(LOG_CRITICAL,fmt,##__VA_ARGS__)
 #define LOG_ERR(fmt,...)          log_printf(LOG_ERROR,fmt,##__VA_ARGS__)
 
+/**
+ * 日志类型枚举
+ */
 typedef enum{
-    LOG_MESSAGE = 0,
-    LOG_INFOR ,
-    LOG_WARNING,
-    LOG_CRITICAL,
-    LOG_ERROR,
+    LOG_DEBUG = 0,      //调试类型
+    LOG_INFOR ,         //普通类型
+    LOG_WARNING,        //警告类型
+    LOG_ERROR,          //错误类型
+    LOG_CRITICAL,       //致命类型
 
     LOG_ENUM_MAX_LENGTH
 }LOG_TYPE;
 
-extern bool log_Init(char* prefix ,char* dir);
+#ifdef  __cplusplus
+extern "C"{
+#else
+#include <stdbool.h>
+#endif
+
+/**
+ * @brief   日志初始化函数
+ *      必须和log_DeInit成对使用
+ * @param   prefix:日志文件名字前缀
+ * @param   dir:日志文件夹名称，相对于可执行文件文件
+ */
+extern bool log_Init(const char* prefix ,const char* dir);
+/**
+ * @brief   日志模块资源释放函数
+ *      软件关闭时调用 和log_Init(...)配合使用
+ *      保证日志文件的完整性 释放内部资源
+ */
 extern void log_DeInit();
-extern void log_printf(LOG_TYPE type,char* format,...);
+/**
+ * @brief   格式化打印日志函数
+ *      推荐使用宏定义输出日志消息
+ * @param   type:日志类型 参考枚举LOG_TYPE
+ * @param   format  格式化消息，支持标准格式化
+ */
+extern void log_printf(LOG_TYPE type,const char* format,...);
+
+#ifdef  __cplusplus
+}
+#endif  //__cplusplus
+
 #endif // !LOGGER_H
