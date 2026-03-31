@@ -4,8 +4,8 @@
 // #include <stdlib.h>
 // #include <stdio.h>
 
+#define LOG_DEBUG(fmt,...)        log_printf(LOG_DEBUG,fmt,##__VA_ARGS__)
 #define LOG_INFO(fmt,...)         log_printf(LOG_INFOR,fmt,##__VA_ARGS__)
-#define LOG_MSG(fmt,...)          log_printf(LOG_MESSAGE,fmt,##__VA_ARGS__)
 #define LOG_WARN(fmt,...)         log_printf(LOG_WARNING,fmt,##__VA_ARGS__)
 #define LOG_CRITI(fmt,...)        log_printf(LOG_CRITICAL,fmt,##__VA_ARGS__)
 #define LOG_ERR(fmt,...)          log_printf(LOG_ERROR,fmt,##__VA_ARGS__)
@@ -33,9 +33,9 @@ extern "C"{
  * @brief   日志初始化函数
  *      必须和log_DeInit成对使用
  * @param   prefix:日志文件名字前缀
- * @param   dir:日志文件夹名称，相对于可执行文件文件
+ * @param   dir:指定日志文件路径名称，默认在可执行文件根目录下
  */
-extern bool log_Init(const char* prefix ,const char* dir);
+extern bool log_Init(const char* prefix ,const char* dirpath);
 /**
  * @brief   日志模块资源释放函数
  *      软件关闭时调用 和log_Init(...)配合使用

@@ -3,13 +3,15 @@
 #include <string.h>
 #include <time.h>
 #include <inttypes.h>
-#include <unistd.h>
+#include <limits.h>
+#include <stdarg.h>
 
 #ifdef _WIN32
 #include <windows.h>
 #include <direct.h>
 #elif defined(__linux__)
 #include <sys/time.h>
+#include <unistd.h>
 #endif // DEBUG
 
 #include "logger.h"
@@ -44,7 +46,7 @@ const char* getMMsTimeStamp(){
     GetLocalTime( &sys );
 
     sprintf_s(buffer,sizeof(buffer),"[%d:%d:%d:%d]",sys.wHour,sys.wMinute,sys.wSecond,sys.wMilliseconds);
-    printf("time mm = %s \n",buffer);
+    //printf("time mm = %s \n",buffer);
 #elif defined(__linux__)
     struct timeval timvalue;
     int ret = gettimeofday(&timvalue,NULL);
@@ -71,14 +73,14 @@ const char* getTimeData(){
     return buffer;
 }
 
-bool logFilemake(const char* prefix,const char* dir){
+bool logFilemake(const char* prefix,const char* path){
     if(prefix && (strlen(prefix) > 30)){
-        printf("log dir or name too long to build!");
+        printf("log path or filename too long to build!");
         // error = EPERM;
         return false;
     }
 
-    if(dir && (strlen(dir) > 190)){
+    if(path && (strlen(path) > 190)){
         printf("log dir or name too long to build!");
         // error = EPERM;
         return false;
@@ -110,15 +112,41 @@ bool logFilemake(const char* prefix,const char* dir){
     snprintf(filename,sizeof(filename),"%s-%s",fileprefix,log_time);
 #endif // DEBUG
 
-    if(dir != NULL)    //指定文件路径
+    if(path != NULL)    //指定文件路径
     {
         #ifdef _WIN32
-        sprintf_s(dirname,sizeof(dirname),"%s",dir);
+        sprintf_s(dirname,sizeof(dirname),"%s", path);
         #elif defined(__linux__)
         snprintf(dirname,sizeof(dirname),"%s",dir);
         #endif // DEBUG
     } else {
-        getcwd(dirname,sizeof(dirname));   
+#ifdef _WIN32
+        char exe_path[MAX_PATH];
+        if (GetModuleFileName(NULL, exe_path, MAX_PATH) == 0) {
+            printf("GetModuleFileName failure");
+            return false;
+        }
+        // 移除文件名，保留目录
+        char* last_slash = strrchr(exe_path, '\\');
+        if (last_slash) {
+            *last_slash = '\0';
+        }
+        strcpy_s(dirname, sizeof(dirname), exe_path);
+#elif defined(__linux__)
+        char exe_path[PATH_MAX];
+        ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
+        if (len == -1) {
+            printf("readlink /proc/self/exe failure");
+            return false;
+        }
+        exe_path[len] = '\0';
+        // 移除文件名，保留目录
+        char* last_slash = strrchr(exe_path, '/');
+        if (last_slash) {
+            *last_slash = '\0';
+        }
+        strcpy(dirname, exe_path);
+#endif
     }
     if(strrchr(dirname,'\\') == (dirname + strlen(dirname) - 1))     //最后一个字符是 /
         memset(dirname + strlen(dirname) - 1,0,sizeof(dirname) - strlen(dirname) + 1);
@@ -152,8 +180,8 @@ void log_DeInit(){
     fclose(log_ptr);
 }
 
-bool log_Init(const char* prefix,const char* dir){
-    if(!logFilemake(prefix,dir)){
+bool log_Init(const char* prefix,const char* dirpath){
+    if(!logFilemake(prefix, dirpath)){
         printf("log file analise failure,log start terminal\n");
         return false;
     }
@@ -175,7 +203,7 @@ void log_printf(LOG_TYPE type,const char* format,...){
     va_start(_ArgList, format);
     #ifdef _WIN32
     _vsprintf_l(buffer, format, NULL, _ArgList);
-    #elifdef __linux__
+    #elif defined(__linux__)
     vsnprintf(buffer, sizeof(buffer),format, _ArgList);
     #endif  //defined(_Win32)
 
