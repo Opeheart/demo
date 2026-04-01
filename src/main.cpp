@@ -8,9 +8,16 @@
  */
 #include <iostream>
 #include "logger.h"
+#include <QApplication>
+#include <QWidget>
 
 int main(int argc, char* argv[]) {
-    log_Init("test","log");
+    QApplication app(argc, argv);
+    log_Init("test", NULL);
+    QWidget w;
+    w.show();
+    app.exec();
+
     std::cout << "Hello, World!" << std::endl;
     LOG_INFO("hello test world\n");
     log_DeInit();
