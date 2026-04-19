@@ -48,8 +48,16 @@ endif()
 message(STATUS "Qt version: ${QT_VERSION_MAJOR}")
 message(STATUS "Qt path: ${QT_PATH}")
 
+# 如果 QT_PATH 未设置则立即报错（在 CMake GUI 上会显示错误）
+if(NOT QT_PATH)
+    message(FATAL_ERROR "QT_PATH is empty. Please set QT_PATH in CMake GUI or pass -DQT_PATH=/path/to/Qt/installation.")
+endif()
+
+# 强化 QT_PATH 框提示文字
+set_property(CACHE QT_PATH PROPERTY HELPSTRING "Qt install path (e.g., D:/Qt/6.8.0/msvc2022_64). Required for find_package.")
+
 # 将 QT_LIB_PREFIX 标记为缓存变量，确保正确的作用域传播
 set(QT_LIB_PREFIX "${QT_LIB_PREFIX}" CACHE INTERNAL "Qt Library Prefix")
 
 # 包含 Qt DLL 拷贝功能
-include(copyQtDlls)
+# include(copyQtDlls)
