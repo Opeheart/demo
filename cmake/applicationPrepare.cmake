@@ -1,0 +1,6 @@
+if(WIN32 AND MSVC)
+    set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES
+        LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup"
+    )
+    # LINK_FLAGS_RELEASE
+endif()
